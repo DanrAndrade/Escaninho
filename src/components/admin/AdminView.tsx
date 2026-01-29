@@ -1,190 +1,255 @@
-"use client";
-import React, { useState } from 'react';
-import { Search, Filter, User, FileText, LockOpen, Lock, AlertCircle } from 'lucide-react';
-
-// --- MOCK DATABASE SIMPLIFICADO ---
-const LOCKER_DATABASE = [
-  { id: '101', status: 'disponivel', student: null, parent: null, class: null, date: null },
-  { id: '102', status: 'ocupado', student: 'João da Silva', parent: 'Carlos Silva', class: '9º Ano A', date: '10/01/2025' },
-  { id: '103', status: 'pendente', student: 'Mariana Souza', parent: 'Fernanda Souza', class: '7º Ano B', date: '16/01/2025' }, // Pendente = Reservado (não está vago)
-  { id: '104', status: 'disponivel', student: null, parent: null, class: null, date: null },
-  { id: '105', status: 'ocupado', student: 'Lucas Oliveira', parent: 'Roberto Oliveira', class: '6º Ano A', date: '15/01/2025' },
-  { id: '106', status: 'disponivel', student: null, parent: null, class: null, date: null },
-  { id: '107', status: 'disponivel', student: null, parent: null, class: null, date: null },
-  { id: '108', status: 'ocupado', student: 'Beatriz Costa', parent: 'Amanda Costa', class: '1ª Série EM', date: '18/01/2025' },
-  { id: '109', status: 'disponivel', student: null, parent: null, class: null, date: null },
-  { id: '110', status: 'disponivel', student: null, parent: null, class: null, date: null },
-  { id: '114', status: 'ocupado', student: 'Sofia Oliveira', parent: 'Roberto Oliveira', class: '9º Ano B', date: '15/01/2025' },
-  { id: '115', status: 'pendente', student: 'Enzo Ferreira', parent: 'Marcos Ferreira', class: '2ª Série EM', date: '19/01/2025' },
-];
+import React, { useEffect, useState } from 'react';
+import { Check, Loader2, User, Lock, FileText, Clock, AlertCircle, LayoutGrid, List, History, Download } from 'lucide-react';
 
 export function AdminView() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'todos' | 'disponivel' | 'ocupado' | 'pendente'>('todos');
+    const [activeTab, setActiveTab] = useState<'pendentes' | 'historico' | 'mapa'>('pendentes');
+    const [reservas, setReservas] = useState<any[]>([]);
+    const [mapaData, setMapaData] = useState<any>({});
+    const [loading, setLoading] = useState(true);
+    const [processingId, setProcessingId] = useState<number | null>(null);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
-  // Lógica de Filtragem
-  const filteredLockers = LOCKER_DATABASE.filter(locker => {
-    const matchesSearch = 
-      locker.id.includes(searchTerm) ||
-      (locker.student && locker.student.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (locker.parent && locker.parent.toLowerCase().includes(searchTerm.toLowerCase()));
+    const fetchData = async () => {
+        try {
+            const res = await fetch('http://localhost:3001/api/admin/reservas-geral');
+            const data = await res.json();
+            if (Array.isArray(data)) setReservas(data);
 
-    const matchesStatus = statusFilter === 'todos' || locker.status === statusFilter;
+            const resMapa = await fetch('http://localhost:3001/api/admin/mapa-detalhado');
+            const dataMapa = await resMapa.json();
+            setMapaData(dataMapa);
+        } catch (error) { console.error(error); } finally { setLoading(false); }
+    };
 
-    return matchesSearch && matchesStatus;
-  });
+    useEffect(() => { fetchData(); }, []);
 
-  // Contadores
-  const totalFree = LOCKER_DATABASE.filter(l => l.status === 'disponivel').length;
-  const totalOccupied = LOCKER_DATABASE.filter(l => l.status === 'ocupado').length;
-  const totalPending = LOCKER_DATABASE.filter(l => l.status === 'pendente').length;
+    const showToast = (msg: string) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 4000);
+    };
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      
-      {/* Cabeçalho Simplificado */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Gestão de Armários</h2>
-          <p className="text-slate-600 font-medium text-sm mt-1">Controle de disponibilidade e ocupação.</p>
-        </div>
-        {/* Botão de Relatório Removido */}
-      </div>
+    const handleDirectDownload = async (reserva: any) => {
+        setDownloadingId(reserva.id);
+        let tempContainer: HTMLElement | null = null;
 
-      {/* Cards de Resumo Rápido */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <button onClick={() => setStatusFilter('todos')} className={`p-4 rounded-2xl border text-left transition-all ${statusFilter === 'todos' ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-          <div className="text-[10px] font-black uppercase tracking-widest opacity-70">Total</div>
-          <div className="text-3xl font-black mt-1">{LOCKER_DATABASE.length}</div>
-        </button>
-        <button onClick={() => setStatusFilter('disponivel')} className={`p-4 rounded-2xl border text-left transition-all ${statusFilter === 'disponivel' ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-white border-slate-200 hover:border-emerald-200'}`}>
-          <div className="text-[10px] font-black uppercase tracking-widest opacity-70">Livres</div>
-          <div className={`text-3xl font-black mt-1 ${statusFilter === 'disponivel' ? 'text-white' : 'text-emerald-600'}`}>{totalFree}</div>
-        </button>
-        <button onClick={() => setStatusFilter('ocupado')} className={`p-4 rounded-2xl border text-left transition-all ${statusFilter === 'ocupado' ? 'bg-[#f16137] text-white border-[#f16137] shadow-lg shadow-orange-500/30' : 'bg-white border-slate-200 hover:border-orange-200'}`}>
-          <div className="text-[10px] font-black uppercase tracking-widest opacity-70">Ocupados</div>
-          <div className={`text-3xl font-black mt-1 ${statusFilter === 'ocupado' ? 'text-white' : 'text-[#f16137]'}`}>{totalOccupied}</div>
-        </button>
-        <button onClick={() => setStatusFilter('pendente')} className={`p-4 rounded-2xl border text-left transition-all ${statusFilter === 'pendente' ? 'bg-amber-400 text-white border-amber-400 shadow-lg shadow-amber-400/30' : 'bg-white border-slate-200 hover:border-amber-200'}`}>
-          <div className="text-[10px] font-black uppercase tracking-widest opacity-70">Reservados</div>
-          <div className={`text-3xl font-black mt-1 ${statusFilter === 'pendente' ? 'text-white' : 'text-amber-500'}`}>{totalPending}</div>
-        </button>
-      </div>
+        try {
+            // @ts-ignore
+            const html2pdf = (await import('html2pdf.js')).default;
+            const res = await fetch('http://localhost:3001/api/contrato-atual');
+            const data = await res.json();
 
-      {/* Barra de Busca */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-        <Search size={20} className="text-slate-400 ml-2" />
-        <input 
-          type="text" 
-          placeholder="Buscar por box, aluno ou responsável..." 
-          className="w-full bg-transparent font-bold text-slate-700 outline-none placeholder:font-medium placeholder:text-slate-400"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <div className="h-6 w-px bg-slate-200 mx-2" />
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 whitespace-nowrap pr-2">
-           <Filter size={16} /> {filteredLockers.length}
-        </div>
-      </div>
+            // CRIA ELEMENTO NO DOM (FORA DO REACT)
+            tempContainer = document.createElement('div');
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.left = '-9999px';
+            tempContainer.style.top = '0';
+            tempContainer.style.width = '210mm';
+            tempContainer.style.backgroundColor = 'white';
 
-      {/* Tabela de Inventário */}
-      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Box</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Aluno / Turma</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Responsável</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredLockers.map((locker) => (
-                <tr key={locker.id} className="hover:bg-slate-50/80 transition-colors group">
-                  
-                  {/* Coluna Box */}
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-sm border ${
-                        locker.status === 'disponivel' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
-                        locker.status === 'ocupado' ? 'bg-slate-800 border-slate-800 text-white' :
-                        'bg-amber-50 border-amber-100 text-amber-600'
-                      }`}>
-                        {locker.id}
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Coluna Status */}
-                  <td className="px-6 py-4">
-                    {locker.status === 'disponivel' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700 tracking-wide">
-                        <LockOpen size={12} strokeWidth={3} /> Livre
-                      </span>
-                    )}
-                    {locker.status === 'ocupado' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-600 tracking-wide">
-                        <Lock size={12} strokeWidth={3} /> Ocupado
-                      </span>
-                    )}
-                    {locker.status === 'pendente' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-700 tracking-wide">
-                        <AlertCircle size={12} strokeWidth={3} /> Reservado
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Coluna Aluno */}
-                  <td className="px-6 py-4">
-                    {locker.student ? (
-                      <div>
-                        <p className="font-bold text-slate-900 text-sm">{locker.student}</p>
-                        <span className="text-[10px] font-bold uppercase text-slate-400">{locker.class}</span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-300 text-xs font-medium italic">-</span>
-                    )}
-                  </td>
-
-                  {/* Coluna Responsável */}
-                  <td className="px-6 py-4">
-                     {locker.parent ? (
-                      <div>
-                        <p className="font-bold text-slate-700 text-sm">{locker.parent}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">Desde {locker.date}</p>
-                      </div>
-                    ) : (
-                      <span className="text-slate-300 text-xs font-medium italic">-</span>
-                    )}
-                  </td>
-
-                  {/* Coluna Ações */}
-                  <td className="px-6 py-4 text-right">
-                    {locker.status === 'disponivel' ? (
-                      <button className="text-emerald-600 font-black text-[10px] uppercase tracking-wider hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">
-                        Alocar
-                      </button>
-                    ) : (
-                      <button className="p-2 text-slate-400 hover:text-[#f16137] hover:bg-orange-50 rounded-lg transition-all" title="Ver Detalhes">
-                        <FileText size={18} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          {filteredLockers.length === 0 && (
-            <div className="p-12 text-center text-slate-400">
-              <Search size={48} className="mx-auto mb-4 opacity-20" />
-              <p className="font-bold text-sm">Nenhum armário encontrado.</p>
+            tempContainer.innerHTML = `
+            <div style="padding: 40px; font-family: sans-serif; color: #000;">
+                <h1 style="text-align:center; border-bottom: 1px solid #000; padding-bottom: 10px;">CONTRATO DE LOCAÇÃO</h1>
+                <p><strong>Locatário:</strong> ${reserva.nome_responsavel}</p>
+                <p><strong>Aluno:</strong> ${reserva.nome_aluno}</p>
+                <p><strong>Armário:</strong> ${reserva.locker_number}</p>
+                <hr/>
+                <div>${data.texto}</div>
+                <div style="margin-top: 50px; padding: 20px; background: #eee;">
+                    Assinado digitalmente em: ${new Date(reserva.data_assinatura).toLocaleString()}
+                </div>
             </div>
-          )}
+        `;
+            document.body.appendChild(tempContainer);
+
+            const opt = {
+                margin: 10,
+                filename: `Contrato_Box${reserva.locker_number}.pdf`,
+                image: { type: 'jpeg' as const, quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+            };
+
+            await html2pdf().set(opt).from(tempContainer).save();
+
+        } catch (error) {
+            alert("Erro ao gerar PDF.");
+        } finally {
+            if (tempContainer && document.body.contains(tempContainer)) {
+                document.body.removeChild(tempContainer);
+            }
+            setDownloadingId(null);
+        }
+    };
+
+    const handleAction = async (action: 'liberar' | 'confirmar', id: number) => {
+        setProcessingId(id);
+        const endpoint = action === 'liberar' ? 'liberar-boleto' : 'confirmar-pagamento';
+        try {
+            await fetch(`http://localhost:3001/api/admin/${endpoint}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservation_id: id })
+            });
+            showToast('✅ Operação realizada com sucesso!');
+            fetchData();
+        } catch (e) { alert("Erro na operação"); }
+        finally { setProcessingId(null); }
+    };
+
+    const pendentes = reservas.filter(r => ['PENDING', 'AWAITING_PAYMENT'].includes(r.status));
+    const historico = reservas.filter(r => ['ACTIVE', 'EXPIRED', 'CANCELLED'].includes(r.status));
+
+    const mapaUnificado = () => {
+        const lista = [];
+        for (let i = 0; i < 12; i++) {
+            const num = (3320 + i).toString();
+            lista.push({ num, data: mapaData[num] || null });
+        }
+        return lista;
+    };
+
+    if (loading && reservas.length === 0) return <div className="p-10 text-center text-slate-400 flex justify-center"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
+
+    return (
+        <div className="pb-20 animate-in fade-in">
+            {/* NÃO TEM MAIS DIV PRINT-AREA AQUI */}
+
+            {toastMessage && (
+                <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right">
+                    <Check className="text-emerald-400" /> <span className="font-bold text-sm">{toastMessage}</span>
+                </div>
+            )}
+
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <h2 className="text-2xl font-black text-slate-900">Gestão de Reservas</h2>
+                <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                    <TabButton active={activeTab === 'pendentes'} onClick={() => setActiveTab('pendentes')} icon={<List size={16} />} label={`Pendentes (${pendentes.length})`} />
+                    <TabButton active={activeTab === 'historico'} onClick={() => setActiveTab('historico')} icon={<History size={16} />} label="Histórico" />
+                    <TabButton active={activeTab === 'mapa'} onClick={() => setActiveTab('mapa')} icon={<LayoutGrid size={16} />} label="Status Geral" />
+                </div>
+            </div>
+
+            {activeTab === 'pendentes' && (
+                <div className="grid gap-4">
+                    {pendentes.length === 0 && <EmptyState msg="Nenhuma pendência." />}
+                    {pendentes.map((reserva) => (
+                        <ReservaCard
+                            key={reserva.id} reserva={reserva} loading={processingId === reserva.id} downloading={downloadingId === reserva.id}
+                            onBoleto={() => handleAction('liberar', reserva.id)}
+                            onConfirm={() => handleAction('confirmar', reserva.id)}
+                            onDownload={() => handleDirectDownload(reserva)}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {activeTab === 'historico' && (
+                <div className="grid gap-4">
+                    {historico.length === 0 && <EmptyState msg="Histórico vazio." />}
+                    {historico.map((reserva) => (
+                        <ReservaCard key={reserva.id} reserva={reserva} isHistory downloading={downloadingId === reserva.id} onDownload={() => handleDirectDownload(reserva)} />
+                    ))}
+                </div>
+            )}
+
+            {activeTab === 'mapa' && (
+                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4">Armário</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4">Ocupante (Aluno)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {mapaUnificado().map(({ num, data }) => {
+                                    let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">Livre</span>;
+                                    let rowClass = "hover:bg-slate-50";
+
+                                    if (data) {
+                                        if (data.status === 'ACTIVE') {
+                                            statusBadge = <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><Check size={12} /> Locado / Pago</span>;
+                                            rowClass = "bg-emerald-50/30 hover:bg-emerald-50/50";
+                                        } else if (['PENDING', 'AWAITING_PAYMENT'].includes(data.status)) {
+                                            statusBadge = <span className="bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><Clock size={12} /> Reservado</span>;
+                                            rowClass = "bg-amber-50/30 hover:bg-amber-50/50";
+                                        }
+                                    }
+
+                                    return (
+                                        <tr key={num} className={`transition-colors ${rowClass}`}>
+                                            <td className="px-6 py-4 font-black text-slate-800 text-lg">#{num}</td>
+                                            <td className="px-6 py-4">{statusBadge}</td>
+                                            <td className="px-6 py-4 font-medium text-slate-700">
+                                                {data ? data.aluno : <span className="text-slate-300 italic">Disponível</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
-      </div>
-    </div>
-  );
+    );
+}
+
+// ... SUBCOMPONENTES ...
+
+function TabButton({ active, onClick, icon, label }: any) {
+    return <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${active ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>{icon} {label}</button>
+}
+
+function ReservaCard({ reserva, loading, downloading, onBoleto, onConfirm, onDownload, isHistory }: any) {
+    return (
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div className="flex-1 w-full">
+                <div className="flex items-center gap-3 mb-2">
+                    <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-lg font-black text-sm">Box {reserva.locker_number}</span>
+                    <StatusBadge status={reserva.status} />
+                </div>
+                <div className="text-sm space-y-1 text-slate-600">
+                    <p className="flex items-center gap-2"><User size={14} /> Resp: <strong>{reserva.nome_responsavel}</strong></p>
+                    <p className="flex items-center gap-2"><Lock size={14} /> Aluno: {reserva.nome_aluno} (RA: {reserva.ra})</p>
+                    <p className="text-xs text-slate-400 mt-1">Data: {new Date(reserva.data_reserva).toLocaleDateString()}</p>
+                </div>
+            </div>
+            <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
+                <button onClick={onDownload} disabled={downloading} className="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 flex items-center justify-center gap-2 disabled:opacity-50">
+                    {downloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />} PDF
+                </button>
+                {!isHistory && (
+                    <>
+                        {reserva.status === 'PENDING' && (
+                            <button onClick={onBoleto} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-2 disabled:opacity-50 min-w-[180px]">
+                                {loading ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />} Liberar Boleto
+                            </button>
+                        )}
+                        {reserva.status === 'AWAITING_PAYMENT' && (
+                            <button onClick={onConfirm} disabled={loading} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-2 disabled:opacity-50 min-w-[180px]">
+                                {loading ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} strokeWidth={3} />} Baixar (Pago)
+                            </button>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const badges: any = {
+        'PENDING': <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 flex items-center gap-1"><Clock size={12} /> Aguardando Admin</span>,
+        'AWAITING_PAYMENT': <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 flex items-center gap-1"><AlertCircle size={12} /> Aguardando Pagamento</span>,
+        'ACTIVE': <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 flex items-center gap-1"><Check size={12} /> Pago / Ativo</span>,
+        'EXPIRED': <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-100">Expirado (48h)</span>,
+        'CANCELLED': <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded">Cancelado</span>
+    };
+    return badges[status] || null;
+}
+
+function EmptyState({ msg }: { msg: string }) {
+    return <div className="p-10 text-center border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-medium">{msg}</div>
 }

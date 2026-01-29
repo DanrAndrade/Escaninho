@@ -1,45 +1,90 @@
-import React from 'react';
-import { ArrowLeft, GraduationCap } from 'lucide-react';
-import { Student } from '@/types';
+import React, { useEffect, useState } from 'react';
+import { User, ChevronRight, Loader2, GraduationCap } from 'lucide-react';
 
-interface StudentSelectionProps {
-  students: Student[];
-  onSelect: (studentId: string) => void;
-  onCancel: () => void;
+interface Student {
+  id: number;
+  nome: string;
+  ra: string;
 }
 
-export const StudentSelectionView = ({ students, onSelect, onCancel }: StudentSelectionProps) => {
-  return (
-    <div className="max-w-4xl mx-auto space-y-12 text-center animate-in zoom-in duration-300">
-      <div className="flex justify-start px-2">
-        <button onClick={onCancel} className="flex items-center gap-2 text-slate-500 font-black hover:text-red-500 transition-all text-[10px] tracking-[0.2em] uppercase p-3 hover:bg-red-50 rounded-xl">
-          <ArrowLeft size={16} strokeWidth={3} /> Cancelar Reserva
-        </button>
-      </div>
-      
-      <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter">Quem é o aluno?</h2>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {students.map(student => (
-          <div 
-            key={student.id}
-            onClick={() => onSelect(student.id)} 
-            className="bg-white p-8 rounded-[32px] border-4 border-slate-50 hover:border-[#f16137] cursor-pointer shadow-lg transition-all group flex flex-col items-center hover:-translate-y-1 relative overflow-hidden"
-          >
-            {/* Efeito Hover */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#f16137]/5 rounded-bl-[100px] transition-transform group-hover:scale-150" />
+interface StudentSelectionViewProps {
+  onSelect: (studentId: number, studentName: string) => void; // Recebe ID e Nome
+  userEmail: string;
+}
 
-            <div className="w-24 h-24 bg-gradient-to-br from-slate-50 to-slate-100 rounded-[28px] mb-6 flex items-center justify-center shadow-inner group-hover:from-[#f16137] group-hover:to-[#d14d2a] transition-all duration-300 border-2 border-slate-100 group-hover:border-[#f16137]">
-               <GraduationCap size={40} className="text-slate-400 group-hover:text-white transition-colors" strokeWidth={2} />
+export function StudentSelectionView({ onSelect, userEmail }: StudentSelectionViewProps) {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function fetchStudents() {
+      try {
+        const response = await fetch(`http://localhost:3001/api/meus-alunos?email=${userEmail}`);
+        const data = await response.json();
+        
+        if (!response.ok) throw new Error(data.error || 'Erro ao buscar alunos');
+        
+        setStudents(data);
+      } catch (err: any) {
+        setError('Não foi possível carregar os alunos.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (userEmail) {
+      fetchStudents();
+    }
+  }, [userEmail]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+        <Loader2 className="animate-spin mb-2" />
+        <p className="text-xs font-bold">Buscando alunos...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-red-500 text-center text-sm font-bold bg-red-50 p-4 rounded-xl">{error}</div>;
+  }
+
+  if (students.length === 0) {
+    return <div className="text-slate-500 text-center p-6">Nenhum aluno vinculado a este responsável.</div>;
+  }
+
+  return (
+    <div className="w-full max-w-md mx-auto">
+      <h3 className="text-lg font-black text-slate-800 mb-1 text-center">Quem vai usar o armário?</h3>
+      <p className="text-slate-400 text-xs font-bold text-center mb-6 uppercase tracking-wider">Selecione o aluno</p>
+      
+      <div className="space-y-3">
+        {students.map((student) => (
+          <button
+            key={student.id}
+            onClick={() => onSelect(student.id, student.nome)} // Passa ID e Nome
+            className="w-full bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-[#f16137] hover:shadow-md transition-all group flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-[#f16137] group-hover:text-white transition-colors">
+                <User size={24} />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 text-sm">{student.nome}</p>
+                <div className="flex items-center gap-2 mt-1">
+                   <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <GraduationCap size={10} />
+                      RA: {student.ra}
+                   </span>
+                </div>
+              </div>
             </div>
-            
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight z-10">{student.name}</h3>
-            <div className="mt-2 px-3 py-1 bg-slate-100 rounded-full group-hover:bg-orange-100 transition-colors z-10">
-               <p className="text-slate-600 text-xs font-black uppercase tracking-[0.2em] group-hover:text-[#d14d2a] transition-colors">{student.grade}</p>
-            </div>
-          </div>
+            <ChevronRight className="text-slate-300 group-hover:text-[#f16137] transition-colors" size={20} />
+          </button>
         ))}
       </div>
     </div>
   );
-};
+}

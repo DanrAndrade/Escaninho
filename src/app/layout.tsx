@@ -5,11 +5,10 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "IASC Portal",
-  description: "Sistema de Gestão de Armários",
-  // ADICIONE ESTA PARTE PARA O FAVICON
+  title: "Escaninho IASC | Portal do Aluno",
+  description: "Sistema de reserva de armários escolares",
   icons: {
-    icon: "/icon.svg",
+    icon: "/icon.svg", // <--- Seu favicon aqui
   },
 };
 
@@ -20,7 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} antialiased bg-slate-50`}>
+        {children}
+      </body>
     </html>
   );
 }

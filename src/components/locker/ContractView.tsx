@@ -1,115 +1,60 @@
-"use client";
-import React, { useState } from 'react';
-import { FileText, Download, Check, ShieldCheck, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, CheckCircle, ArrowLeft } from 'lucide-react';
 
 interface ContractViewProps {
   studentName: string;
   lockerNumber: string;
+  reservationId: number; // Não usado no novo fluxo, mas mantido pra não quebrar tipagem antiga
   onBack: () => void;
   onConfirm: () => void;
 }
 
-export function ContractView({ studentName, lockerNumber, onBack, onConfirm }: ContractViewProps) {
-  const [accepted, setAccepted] = useState(false);
-  const [isSigning, setIsSigning] = useState(false);
+export const ContractView = ({ studentName, lockerNumber, onBack, onConfirm }: ContractViewProps) => {
+  const [contractText, setContractText] = useState('Carregando contrato...');
+  const [agreed, setAgreed] = useState(false);
 
-  const handleSign = () => {
-    setIsSigning(true);
-    setTimeout(() => {
-      setIsSigning(false);
-      onConfirm();
-    }, 1500);
-  };
+  useEffect(() => {
+    fetch('http://localhost:3001/api/contrato-atual')
+      .then(res => res.json())
+      .then(data => setContractText(data.texto));
+  }, []);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 items-start">
-      
-      {/* Visualização do Contrato */}
-      <div className="flex-1 bg-white rounded-[24px] shadow-xl border border-slate-200 overflow-hidden w-full">
-        <div className="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-slate-500">
-            <FileText size={18} />
-            <span className="text-xs font-black uppercase tracking-widest">Minuta do Contrato</span>
-          </div>
-          <button className="text-slate-400 hover:text-[#f16137] transition-colors">
-            <Download size={18} />
-          </button>
+    <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl animate-in fade-in zoom-in-95 duration-300">
+      <div className="flex items-center gap-4 mb-6 border-b border-slate-100 pb-6">
+        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-600">
+            <FileText size={24} />
         </div>
-        
-        <div className="p-8 h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent text-justify text-slate-600 text-sm leading-relaxed space-y-4 font-medium">
-          <div className="text-center mb-6">
-            <h3 className="text-lg font-black text-slate-900 uppercase">Termo de Adesão de Uso de Armário Escolar</h3>
-            <p className="text-xs text-slate-500 font-bold mt-1">Ano Letivo 2025</p>
-          </div>
-
-          <p>
-            Pelo presente instrumento particular, de um lado a <strong>INSTITUIÇÃO DE ENSINO</strong>, e de outro lado, 
-            o responsável financeiro, doravante denominado <strong>LOCATÁRIO</strong>, identificado abaixo:
-          </p>
-
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 my-4 text-xs">
-            <p><strong>Responsável:</strong> Roberto Oliveira</p> {/* NOME FICTÍCIO ATUALIZADO */}
-            <p><strong>Aluno(a):</strong> {studentName}</p>
-            <p><strong>Armário Nº:</strong> {lockerNumber}</p>
-            <p><strong>Vigência:</strong> 01/02/2025 a 15/12/2025</p>
-          </div>
-
-          <p><strong>CLÁUSULA PRIMEIRA - DO OBJETO</strong><br/>
-          O presente contrato tem por objeto a cessão de uso do armário escolar (box) acima identificado, localizado nas dependências da escola, para uso exclusivo do aluno indicado para guarda de material escolar.</p>
-
-          <p><strong>CLÁUSULA SEGUNDA - DA UTILIZAÇÃO</strong><br/>
-          O armário destina-se exclusivamente à guarda de livros, cadernos e materiais didáticos. É expressamente proibida a guarda de alimentos perecíveis, materiais ilícitos, inflamáveis ou de valor excessivo.</p>
-
-          <p><strong>CLÁUSULA TERCEIRA - DAS CHAVES E CADEADOS</strong><br/>
-          O aluno receberá uma cópia da chave ou senha de acesso. Em caso de perda da chave, será cobrada uma taxa de substituição do miolo/cadeado vigente na tabela da secretaria.</p>
-
-          <p><strong>CLÁUSULA QUARTA - DA RESPONSABILIDADE</strong><br/>
-          A escola não se responsabiliza por objetos de valor (celulares, eletrônicos, dinheiro, joias) deixados no interior do armário. O uso é de inteira responsabilidade do aluno.</p>
-          
-          <p><strong>CLÁUSULA QUINTA - DA DEVOLUÇÃO</strong><br/>
-          Ao final do ano letivo, o armário deverá ser desocupado e a chave devolvida à secretaria até a data limite estipulada no calendário escolar, sob pena de multa diária.</p>
-
-          <p className="text-center mt-8 text-slate-400 text-xs">
-            Li e concordo com todos os termos acima descritos.
-          </p>
+        <div>
+            <h2 className="text-xl font-black text-slate-900">Contrato de Locação</h2>
+            <p className="text-sm text-slate-500">Leia atentamente os termos abaixo.</p>
         </div>
       </div>
 
-      {/* Painel de Assinatura */}
-      <div className="w-full lg:w-80 flex flex-col gap-6 sticky top-6">
-        <div className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-lg">
-          <h3 className="text-xl font-black text-slate-900 mb-2">Confirmação</h3>
-          <p className="text-sm text-slate-500 font-medium mb-6">Para finalizar a reserva do armário <strong>#{lockerNumber}</strong>, aceite os termos.</p>
+      <div className="bg-slate-50 p-6 rounded-xl h-96 overflow-y-auto border border-slate-200 mb-6 text-sm text-slate-700 leading-relaxed font-serif shadow-inner custom-scrollbar">
+         <div dangerouslySetInnerHTML={{ __html: contractText }} />
+      </div>
 
-          <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors mb-6 group">
-            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors mt-0.5 ${accepted ? 'bg-[#f16137] border-[#f16137] text-white' : 'border-slate-300 group-hover:border-[#f16137]'}`}>
-              {accepted && <Check size={14} strokeWidth={4} />}
+      <div className="space-y-6">
+        <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors select-none">
+            <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-all ${agreed ? 'bg-[#f16137] border-[#f16137] text-white' : 'border-slate-300 bg-white'}`}>
+                {agreed && <CheckCircle size={14} />}
             </div>
-            <input type="checkbox" className="hidden" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
-            <span className="text-xs font-bold text-slate-600 select-none">
-              Declaro que li e aceito os termos do contrato de locação.
-            </span>
-          </label>
+            <input type="checkbox" className="hidden" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+            <div className="flex-1">
+                <span className="font-bold text-slate-800 text-sm">Li e concordo com os termos</span>
+                <p className="text-xs text-slate-500 mt-0.5">Ao marcar esta opção, você aceita digitalmente o contrato vinculado ao aluno <strong>{studentName}</strong> para o armário <strong>{lockerNumber}</strong>.</p>
+            </div>
+        </label>
 
-          <button 
-            onClick={handleSign}
-            disabled={!accepted || isSigning}
-            className="w-full bg-gradient-to-r from-[#f16137] to-[#d14d2a] text-white py-4 rounded-xl font-black text-sm shadow-xl shadow-orange-500/20 hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-          >
-            {isSigning ? (
-              <span className="animate-pulse">Processando...</span>
-            ) : (
-              <>
-                Assinar e Reservar <ShieldCheck size={18} />
-              </>
-            )}
-          </button>
-          
-          <p className="text-[10px] text-center text-slate-400 mt-4 px-4">
-            Ao clicar em reservar, você concorda com o débito do valor na fatura escolar.
-          </p>
-        </div>
+        <button 
+            onClick={onConfirm} 
+            disabled={!agreed}
+            className="w-full bg-gradient-to-br from-[#c84622] to-[#f16137] text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#f16137]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+        >
+            <CheckCircle size={20} strokeWidth={3} /> Assinar e Reservar
+        </button>
       </div>
     </div>
   );
-}
+};
