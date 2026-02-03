@@ -1,6 +1,8 @@
 "use client";
 import React, { useState } from 'react';
 import { User, Lock, ArrowRight, Eye, EyeOff, ShieldCheck, AlertCircle } from 'lucide-react';
+// IMPORTANTE: Importando a API_URL
+import { API_URL } from '@/lib/api';
 
 interface LoginPageProps {
   onLogin: (userData: any) => void;
@@ -19,7 +21,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/login', {
+      // CORREÇÃO: Usando API_URL
+      const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -64,13 +67,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         {/* --- LADO ESQUERDO: IMAGEM --- */}
         <div className="hidden lg:block w-1/2 p-4"> 
           <div className="relative w-full h-full rounded-[2rem] overflow-hidden bg-slate-100"> 
-             {/* IMAGEM DE LOGIN AQUI */}
              <img 
                src="/login.jpg" 
                alt="IASC School Lockers" 
                className="absolute inset-0 w-full h-full object-cover"
                onError={(e) => {
-                 // Fallback caso a imagem não exista
                  e.currentTarget.src = "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop"
                }}
              />
@@ -98,10 +99,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="w-full lg:w-1/2 p-8 md:p-12 xl:p-16 flex flex-col justify-center bg-white">
           <div className="w-full max-w-sm mx-auto">
             
-            {/* Header com LOGO (Mobile e Desktop) */}
             <div className="mb-10 text-center lg:text-left">
               <div className="flex justify-center lg:justify-start mb-6">
-                {/* LOGO DO LOGIN AQUI */}
                 <img src="/logo.svg" alt="IASC" className="h-10 w-auto" />
               </div>
               <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Bem-vindo</h1>

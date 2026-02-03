@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Lock, Loader2, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Lock, Loader2, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
+// Importação essencial para produção (evita erro de localhost no celular do pai)
+import { API_URL } from '@/lib/api';
 
 interface AlunoDoBanco {
   id: number;
@@ -31,14 +33,20 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
     const fetchData = async () => {
       try {
         if (!userEmail) return;
-        const resAlunos = await fetch(`http://localhost:3001/api/meus-alunos?email=${userEmail}`);
+        
+        // CORREÇÃO APLICADA: Usando API_URL em vez de localhost
+        const resAlunos = await fetch(`${API_URL}/api/meus-alunos?email=${userEmail}`);
         const dataAlunos = await resAlunos.json();
         if (Array.isArray(dataAlunos)) setStudents(dataAlunos);
 
-        const resReservas = await fetch(`http://localhost:3001/api/minhas-reservas?email=${userEmail}`);
+        const resReservas = await fetch(`${API_URL}/api/minhas-reservas?email=${userEmail}`);
         const dataReservas = await resReservas.json();
         if (Array.isArray(dataReservas)) setReservas(dataReservas);
-      } catch (err) { console.error(err); } finally { setLoading(false); }
+      } catch (err) { 
+        console.error(err); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchData();
   }, [userEmail]);
@@ -47,7 +55,9 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Central de Reservas</h2>
           <p className="text-slate-600 font-medium text-sm mt-1">Gerencie os acessos e escaninhos da sua família.</p>
@@ -55,7 +65,7 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
         
         <button 
           onClick={onNewRental}
-          className="w-auto bg-gradient-to-br from-[#c84622] to-[#f16137] text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg shadow-[#f16137]/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+          className="w-auto bg-gradient-to-br from-[#c84622] to-[#f16137] text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg shadow-[#f16137]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2"
         >
           <Plus size={18} strokeWidth={3} /> Nova Locação
         </button>
@@ -64,12 +74,16 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Card Alunos */}
         <div className="space-y-3">
-          {/* CORREÇÃO DO HTML AQUI: Era <p>, virou <div> */}
           <div className="text-[10px] font-black text-slate-800 uppercase tracking-[0.25em] ml-2 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-[#f16137]" /> Alunos Vinculados
           </div>
           <div className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm min-h-[180px]">
             {loading && <div className="flex justify-center items-center h-full text-slate-400"><Loader2 className="animate-spin mr-2"/> Carregando...</div>}
+            
+            {!loading && students.length === 0 && (
+                 <div className="text-center text-slate-400 py-10 text-sm">Nenhum aluno vinculado ao seu CPF.</div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {students.map(student => (
                 <div key={student.id} className="flex flex-col p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm">
@@ -88,7 +102,6 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
 
         {/* Card Locações Ativas */}
         <div className="space-y-3">
-          {/* CORREÇÃO DO HTML AQUI TAMBÉM */}
           <div className="text-[10px] font-black text-slate-800 uppercase tracking-[0.25em] ml-2 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-[#78865c]" /> Locações Ativas
           </div>
@@ -113,7 +126,7 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
         </div>
       </div>
       
-      {/* Tabela de Histórico (Sem Valor) */}
+      {/* Tabela de Histórico */}
       <div className="space-y-3 pt-2">
          <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-[0.25em] ml-2 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Histórico e Status
@@ -123,24 +136,39 @@ export const DashboardView = ({ onNewRental, userEmail }: DashboardViewProps) =>
                <table className="w-full text-left border-collapse">
                   <thead>
                       <tr className="bg-slate-800 text-[10px] font-black text-white uppercase tracking-[0.2em]">
-                         <th className="px-8 py-4">Status</th>
-                         <th className="px-8 py-4">Armário</th>
-                         <th className="px-8 py-4">Aluno</th>
-                         <th className="px-8 py-4 text-right">Data Reserva</th>
+                         <th className="px-6 py-4 whitespace-nowrap">Status</th>
+                         <th className="px-6 py-4 whitespace-nowrap">Armário</th>
+                         <th className="px-6 py-4 whitespace-nowrap">Aluno</th>
+                         <th className="px-6 py-4 text-right whitespace-nowrap">Data</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
+                      {reservas.length === 0 && (
+                          <tr><td colSpan={4} className="p-6 text-center text-slate-400 text-sm">Nenhum registro encontrado.</td></tr>
+                      )}
                       {reservas.map((reserva) => (
                         <tr key={reserva.id} className="text-sm hover:bg-slate-50 transition-colors">
-                          <td className="px-8 py-5">
-                              {reserva.status === 'ACTIVE' && <StatusTag color="emerald" text="Ativo / Pago" />}
+                          <td className="px-6 py-5 whitespace-nowrap align-top">
+                              {reserva.status === 'ACTIVE' && <StatusTag color="emerald" text="Ativo / Pago" icon={<CheckCircle size={10}/>} />}
                               {reserva.status === 'PENDING' && <StatusTag color="amber" text="Aguard. Liberação" icon={<Clock size={10}/>} />}
-                              {reserva.status === 'AWAITING_PAYMENT' && <StatusTag color="blue" text="Boleto Disponível (24h)" icon={<AlertCircle size={10}/>} />}
-                              {reserva.status === 'EXPIRED' && <StatusTag color="red" text="Suspenso / Expirado" />}
+                              
+                              {/* STATUS BOLETO COM AVISO EXTRA */}
+                              {reserva.status === 'AWAITING_PAYMENT' && (
+                                <div className="flex flex-col gap-1">
+                                    <StatusTag color="blue" text="Boleto Disponível" icon={<AlertCircle size={10}/>} />
+                                    <span className="text-[10px] text-slate-400 font-medium whitespace-normal leading-tight max-w-[200px]">
+                                        Disponível no Portal do Aluno.<br/>
+                                        (Caso já tenha pago, desconsidere).
+                                    </span>
+                                </div>
+                              )}
+                              
+                              {reserva.status === 'EXPIRED' && <StatusTag color="red" text="Expirado" icon={<X size={10}/>} />}
+                              {reserva.status === 'CANCELLED' && <StatusTag color="red" text="Cancelado" icon={<X size={10}/>} />}
                           </td>
-                          <td className="px-8 py-5 font-black text-slate-900">#{reserva.locker_number}</td>
-                          <td className="px-8 py-5 text-slate-700 font-medium">{reserva.nome_aluno}</td>
-                          <td className="px-8 py-5 text-right text-slate-500 text-xs">{new Date(reserva.data_reserva).toLocaleDateString()}</td>
+                          <td className="px-6 py-5 font-black text-slate-900 whitespace-nowrap align-top">#{reserva.locker_number}</td>
+                          <td className="px-6 py-5 text-slate-700 font-medium whitespace-nowrap align-top">{reserva.nome_aluno}</td>
+                          <td className="px-6 py-5 text-right text-slate-500 text-xs whitespace-nowrap align-top">{new Date(reserva.data_reserva).toLocaleDateString()}</td>
                         </tr>
                       ))}
                   </tbody>

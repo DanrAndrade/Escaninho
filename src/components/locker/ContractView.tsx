@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, CheckCircle, ArrowLeft } from 'lucide-react';
+import { FileText, CheckCircle } from 'lucide-react';
+import { API_URL } from '@/lib/api'; // Importa a URL inteligente
 
 interface ContractViewProps {
   studentName: string;
   lockerNumber: string;
-  reservationId: number; // Não usado no novo fluxo, mas mantido pra não quebrar tipagem antiga
+  reservationId: number;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-export const ContractView = ({ studentName, lockerNumber, onBack, onConfirm }: ContractViewProps) => {
+export const ContractView = ({ studentName, lockerNumber, onConfirm }: ContractViewProps) => {
   const [contractText, setContractText] = useState('Carregando contrato...');
   const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/contrato-atual')
+    // USA API_URL
+    fetch(`${API_URL}/api/contrato-atual`)
       .then(res => res.json())
-      .then(data => setContractText(data.texto));
+      .then(data => setContractText(data.texto))
+      .catch(() => setContractText('<p>Erro ao carregar o contrato.</p>'));
   }, []);
 
   return (
@@ -50,7 +53,7 @@ export const ContractView = ({ studentName, lockerNumber, onBack, onConfirm }: C
         <button 
             onClick={onConfirm} 
             disabled={!agreed}
-            className="w-full bg-gradient-to-br from-[#c84622] to-[#f16137] text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#f16137]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-br from-[#c84622] to-[#f16137] text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#f16137]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer"
         >
             <CheckCircle size={20} strokeWidth={3} /> Assinar e Reservar
         </button>

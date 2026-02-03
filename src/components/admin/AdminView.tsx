@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Loader2, User, Lock, FileText, Clock, AlertCircle, LayoutGrid, List, History, Download } from 'lucide-react';
+import { Check, Loader2, User, Lock, FileText, Clock, AlertCircle, LayoutGrid, List, History, Download, X, Trash2, AlertTriangle } from 'lucide-react';
+import { generateContractPDF } from '@/utils/contractGenerator';
+import { API_URL } from '@/lib/api';
 
 export function AdminView() {
     const [activeTab, setActiveTab] = useState<'pendentes' | 'historico' | 'mapa'>('pendentes');
@@ -8,15 +10,18 @@ export function AdminView() {
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+    // Estados para o Modal de Cancelamento
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [reservaToCancel, setReservaToCancel] = useState<any>(null);
 
     const fetchData = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/admin/reservas-geral');
+            const res = await fetch(`${API_URL}/api/admin/reservas-geral`);
             const data = await res.json();
             if (Array.isArray(data)) setReservas(data);
 
-            const resMapa = await fetch('http://localhost:3001/api/admin/mapa-detalhado');
+            const resMapa = await fetch(`${API_URL}/api/admin/mapa-detalhado`);
             const dataMapa = await resMapa.json();
             setMapaData(dataMapa);
         } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -29,70 +34,49 @@ export function AdminView() {
         setTimeout(() => setToastMessage(null), 4000);
     };
 
-    const handleDirectDownload = async (reserva: any) => {
-        setDownloadingId(reserva.id);
-        let tempContainer: HTMLElement | null = null;
-
-        try {
-            // @ts-ignore
-            const html2pdf = (await import('html2pdf.js')).default;
-            const res = await fetch('http://localhost:3001/api/contrato-atual');
-            const data = await res.json();
-
-            // CRIA ELEMENTO NO DOM (FORA DO REACT)
-            tempContainer = document.createElement('div');
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.left = '-9999px';
-            tempContainer.style.top = '0';
-            tempContainer.style.width = '210mm';
-            tempContainer.style.backgroundColor = 'white';
-
-            tempContainer.innerHTML = `
-            <div style="padding: 40px; font-family: sans-serif; color: #000;">
-                <h1 style="text-align:center; border-bottom: 1px solid #000; padding-bottom: 10px;">CONTRATO DE LOCAÇÃO</h1>
-                <p><strong>Locatário:</strong> ${reserva.nome_responsavel}</p>
-                <p><strong>Aluno:</strong> ${reserva.nome_aluno}</p>
-                <p><strong>Armário:</strong> ${reserva.locker_number}</p>
-                <hr/>
-                <div>${data.texto}</div>
-                <div style="margin-top: 50px; padding: 20px; background: #eee;">
-                    Assinado digitalmente em: ${new Date(reserva.data_assinatura).toLocaleString()}
-                </div>
-            </div>
-        `;
-            document.body.appendChild(tempContainer);
-
-            const opt = {
-                margin: 10,
-                filename: `Contrato_Box${reserva.locker_number}.pdf`,
-                image: { type: 'jpeg' as const, quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
-            };
-
-            await html2pdf().set(opt).from(tempContainer).save();
-
-        } catch (error) {
-            alert("Erro ao gerar PDF.");
-        } finally {
-            if (tempContainer && document.body.contains(tempContainer)) {
-                document.body.removeChild(tempContainer);
-            }
-            setDownloadingId(null);
-        }
+    const handleDownload = (reserva: any) => {
+        generateContractPDF(reserva);
     };
 
     const handleAction = async (action: 'liberar' | 'confirmar', id: number) => {
         setProcessingId(id);
         const endpoint = action === 'liberar' ? 'liberar-boleto' : 'confirmar-pagamento';
         try {
-            await fetch(`http://localhost:3001/api/admin/${endpoint}`, {
+            await fetch(`${API_URL}/api/admin/${endpoint}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservation_id: id })
             });
             showToast('✅ Operação realizada com sucesso!');
             fetchData();
         } catch (e) { alert("Erro na operação"); }
         finally { setProcessingId(null); }
+    };
+
+    // Abre o modal de confirmação
+    const openCancelModal = (reserva: any) => {
+        setReservaToCancel(reserva);
+        setCancelModalOpen(true);
+    };
+
+    // Executa o cancelamento de fato
+    const confirmCancel = async () => {
+        if (!reservaToCancel) return;
+        setProcessingId(reservaToCancel.id);
+        setCancelModalOpen(false); // Fecha modal
+
+        try {
+            await fetch(`${API_URL}/api/admin/cancelar-reserva`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reservation_id: reservaToCancel.id })
+            });
+            showToast('🚫 Reserva cancelada com sucesso.');
+            fetchData();
+        } catch (error) {
+            alert('Erro ao cancelar.');
+        } finally {
+            setProcessingId(null);
+            setReservaToCancel(null);
+        }
     };
 
     const pendentes = reservas.filter(r => ['PENDING', 'AWAITING_PAYMENT'].includes(r.status));
@@ -110,12 +94,34 @@ export function AdminView() {
     if (loading && reservas.length === 0) return <div className="p-10 text-center text-slate-400 flex justify-center"><Loader2 className="animate-spin mr-2" /> Carregando...</div>;
 
     return (
-        <div className="pb-20 animate-in fade-in">
-            {/* NÃO TEM MAIS DIV PRINT-AREA AQUI */}
-
+        <div className="pb-20 animate-in fade-in relative">
+            {/* TOAST DE SUCESSO */}
             {toastMessage && (
-                <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right">
-                    <Check className="text-emerald-400" /> <span className="font-bold text-sm">{toastMessage}</span>
+                <div className="fixed bottom-4 right-4 z-50 bg-slate-900 text-white pl-6 pr-3 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom">
+                    <div className="flex items-center gap-3">
+                        <Check className="text-emerald-400" /> <span className="font-bold text-sm">{toastMessage}</span>
+                    </div>
+                    <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-white/10 rounded-lg transition-colors"><X size={16} className="text-slate-400 hover:text-white" /></button>
+                </div>
+            )}
+
+            {/* MODAL DE CONFIRMAÇÃO DE CANCELAMENTO */}
+            {cancelModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95">
+                        <div className="flex items-center gap-3 text-red-600 mb-4">
+                            <div className="bg-red-50 p-3 rounded-full"><AlertTriangle size={24} /></div>
+                            <h3 className="text-lg font-black text-slate-900">Cancelar Reserva?</h3>
+                        </div>
+                        <p className="text-slate-500 text-sm mb-6">
+                            Você tem certeza que deseja cancelar a reserva do armário <strong>#{reservaToCancel?.locker_number}</strong>? 
+                            <br/><br/>Essa ação não pode ser desfeita e o aluno perderá o armário.
+                        </p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setCancelModalOpen(false)} className="flex-1 py-3 font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">Voltar</button>
+                            <button onClick={confirmCancel} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-red-200">Sim, Cancelar</button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -133,10 +139,11 @@ export function AdminView() {
                     {pendentes.length === 0 && <EmptyState msg="Nenhuma pendência." />}
                     {pendentes.map((reserva) => (
                         <ReservaCard
-                            key={reserva.id} reserva={reserva} loading={processingId === reserva.id} downloading={downloadingId === reserva.id}
+                            key={reserva.id} reserva={reserva} loading={processingId === reserva.id}
                             onBoleto={() => handleAction('liberar', reserva.id)}
                             onConfirm={() => handleAction('confirmar', reserva.id)}
-                            onDownload={() => handleDirectDownload(reserva)}
+                            onDownload={() => handleDownload(reserva)}
+                            onCancel={() => openCancelModal(reserva)} // Botão Cancelar
                         />
                     ))}
                 </div>
@@ -146,7 +153,7 @@ export function AdminView() {
                 <div className="grid gap-4">
                     {historico.length === 0 && <EmptyState msg="Histórico vazio." />}
                     {historico.map((reserva) => (
-                        <ReservaCard key={reserva.id} reserva={reserva} isHistory downloading={downloadingId === reserva.id} onDownload={() => handleDirectDownload(reserva)} />
+                        <ReservaCard key={reserva.id} reserva={reserva} isHistory onDownload={() => handleDownload(reserva)} />
                     ))}
                 </div>
             )}
@@ -196,13 +203,11 @@ export function AdminView() {
     );
 }
 
-// ... SUBCOMPONENTES ...
-
 function TabButton({ active, onClick, icon, label }: any) {
     return <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${active ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>{icon} {label}</button>
 }
 
-function ReservaCard({ reserva, loading, downloading, onBoleto, onConfirm, onDownload, isHistory }: any) {
+function ReservaCard({ reserva, loading, onBoleto, onConfirm, onDownload, onCancel, isHistory }: any) {
     return (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
             <div className="flex-1 w-full">
@@ -217,11 +222,16 @@ function ReservaCard({ reserva, loading, downloading, onBoleto, onConfirm, onDow
                 </div>
             </div>
             <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
-                <button onClick={onDownload} disabled={downloading} className="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 flex items-center justify-center gap-2 disabled:opacity-50">
-                    {downloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />} PDF
+                <button onClick={onDownload} className="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 flex items-center justify-center gap-2 min-w-[100px] cursor-pointer active:scale-95">
+                    <Download size={16} /> PDF
                 </button>
                 {!isHistory && (
                     <>
+                        {/* BOTÃO DE CANCELAR (Apenas para não-histórico) */}
+                        <button onClick={onCancel} disabled={loading} className="px-3 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold transition-colors flex items-center justify-center disabled:opacity-50" title="Cancelar Reserva">
+                            <Trash2 size={16} />
+                        </button>
+
                         {reserva.status === 'PENDING' && (
                             <button onClick={onBoleto} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-2 disabled:opacity-50 min-w-[180px]">
                                 {loading ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />} Liberar Boleto
